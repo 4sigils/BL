@@ -222,7 +222,7 @@ end
 function GalaxLib:CreateWindow(opts)
     opts=opts or {}
     local WIN={
-        Title=opts.Title or "Galax", Size=opts.Size or Vector2.new(560,480),
+        Title=opts.Title or "Galax", Size=Vector2.new(math.max(580,opts.Size and opts.Size.X or 580), math.max(480,opts.Size and opts.Size.Y or 480)),
         MenuKey=opts.MenuKey or 0x70,
         _pos=Vector2.new(opts.X or 120,opts.Y or 80),
         _open=true, _running=true,
@@ -232,7 +232,7 @@ function GalaxLib:CreateWindow(opts)
         _openDropId=nil, _cpTarget=nil, _settingsListen=false,
         _snakeLines={}, _snakeCount=18,
         _scrollY=0, _scrollVel=0,
-        _minSz=Vector2.new(420,320),
+        _minSz=Vector2.new(580,480),
     }
     for i=1,WIN._snakeCount do
         WIN._snakeLines[i]=newDraw("Line",{Thickness=1.5,Color=T.Accent,Visible=false,ZIndex=50})
