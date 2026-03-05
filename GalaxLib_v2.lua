@@ -181,7 +181,7 @@ local function pushNotif(msg,title,dur)
         endAt=tick()+(dur or 3),alpha=0,startDur=dur or 3})
 end
 local function renderNotifs()
-    local now=tick(); local F=Drawing.Fonts.UI
+    local now=tick(); local F=Drawing.Fonts.Plex
     poolBegin(_notifPool)
     local alive={}
     for _,n in ipairs(_notifs) do
@@ -490,7 +490,8 @@ function GalaxLib:CreateWindow(opts)
             h=22
 
         elseif it.type=="button" then
-            local bp=Vector2.new(wx,wy); local bs=Vector2.new(iW,22); local hov=over(bp,bs)
+            local BTN_H=24
+            local bp=Vector2.new(wx,wy); local bs=Vector2.new(iW,BTN_H); local hov=over(bp,bs)
             local bgC, bdC
             if it.color then
                 bgC=hov and lerpC(it.color,T.Text,0.2) or lerpC(it.color,T.Body,0.3)
@@ -501,9 +502,9 @@ function GalaxLib:CreateWindow(opts)
             end
             poolAdd(pool,wid.."_btn", "Square",{Position=bp,Size=bs,Filled=true, Color=bgC,Visible=true,ZIndex=6})
             poolAdd(pool,wid.."_btnb","Square",{Position=bp,Size=bs,Filled=false,Color=bdC,Thickness=1,Visible=true,ZIndex=7})
-            poolAdd(pool,wid.."_btnt","Text",  {Position=bp+Vector2.new(iW/2,4),Text=it.label,Size=13,Font=FONT,Color=T.Text,Center=true,Outline=false,Visible=true,ZIndex=7})
+            poolAdd(pool,wid.."_btnt","Text",{Position=Vector2.new(wx+iW/2,wy+math.floor((BTN_H-13)/2)),Text=it.label,Size=13,Font=FONT,Color=T.Text,Center=true,Outline=false,Visible=true,ZIndex=7})
             if Input.click and hov then it.cb() end
-            h=28
+            h=BTN_H+4
 
         elseif it.type=="slider" then
             local vs=tostring(it.value)..it.suffix
@@ -673,12 +674,13 @@ function GalaxLib:CreateWindow(opts)
             h=24
 
         elseif it.type=="settings_kill" then
-            local bp=Vector2.new(wx,wy); local bs=Vector2.new(iW,22); local hov=over(bp,bs)
+            local BTN_H=24
+            local bp=Vector2.new(wx,wy); local bs=Vector2.new(iW,BTN_H); local hov=over(bp,bs)
             poolAdd(pool,wid.."_btn", "Square",{Position=bp,Size=bs,Filled=true, Color=hov and T.RedDark or T.Surface1,Visible=true,ZIndex=6})
             poolAdd(pool,wid.."_btnb","Square",{Position=bp,Size=bs,Filled=false,Color=hov and T.Red or T.Border0,Thickness=1,Visible=true,ZIndex=7})
-            poolAdd(pool,wid.."_btnt","Text",  {Position=bp+Vector2.new(iW/2,4),Text=it.label,Size=13,Font=FONT,Color=T.Red,Center=true,Outline=false,Visible=true,ZIndex=7})
+            poolAdd(pool,wid.."_btnt","Text",{Position=Vector2.new(wx+iW/2,wy+math.floor((BTN_H-13)/2)),Text=it.label,Size=13,Font=FONT,Color=T.Red,Center=true,Outline=false,Visible=true,ZIndex=7})
             if Input.click and hov then self:Notify("Script killed.",self.Title,2);self._running=false end
-            h=28
+            h=BTN_H+4
         end
         return h
     end
@@ -686,7 +688,7 @@ function GalaxLib:CreateWindow(opts)
     -- ── Render ───────────────────────────────────────────────────────────────
     function WIN:_render()
         local pool=self._pool; local pos=self._pos; local sz=self.Size
-        local t=tick(); local F=Drawing.Fonts.UI
+        local t=tick(); local F=Drawing.Fonts.Plex
 
         if not self._open then
             poolDestroy(pool)
@@ -749,7 +751,7 @@ function GalaxLib:CreateWindow(opts)
             local tpos=pos+Vector2.new(tabX,tabY); local tsz=Vector2.new(tw,tabH)
             local open=(self._openTab==tab)
             poolAdd(pool,"tabbg"..i, "Square",{Position=tpos,Size=tsz,Filled=true,Color=open and T.Surface1 or T.Surface0,Visible=true,ZIndex=3})
-            poolAdd(pool,"tabtx"..i, "Text",  {Position=tpos+Vector2.new(tw/2,tabH/2-6),Text=tab._name,Size=13,Font=F,Color=open and T.Text or T.SubText,Center=true,Outline=false,Visible=true,ZIndex=4})
+            poolAdd(pool,"tabtx"..i, "Text",{Position=Vector2.new(tpos.X+tw/2,tpos.Y+math.floor((tabH-13)/2)),Text=tab._name,Size=13,Font=F,Color=open and T.Text or T.SubText,Center=true,Outline=false,Visible=true,ZIndex=4})
             if open then poolAdd(pool,"tabul"..i,"Square",{Position=tpos+Vector2.new(0,tabH-2),Size=Vector2.new(tw,2),Filled=true,Color=T.Accent,Visible=true,ZIndex=4})
             else poolHide(pool,"tabul"..i) end
             if Input.click and over(tpos,tsz) then
@@ -784,14 +786,14 @@ function GalaxLib:CreateWindow(opts)
                     if     it.type=="separator"                               then sh=sh+18
                     elseif it.type=="label"                                   then sh=sh+26
                     elseif it.type=="toggle"                                  then sh=sh+28
-                    elseif it.type=="button"                                  then sh=sh+34
+                    elseif it.type=="button"                                  then sh=sh+28
                     elseif it.type=="slider"                                  then sh=sh+40
                     elseif it.type=="dropdown" or it.type=="multidropdown"    then sh=sh+48
                     elseif it.type=="colorpicker"                             then sh=sh+(it._open and 160 or 30)
                     elseif it.type=="keybind"                                 then sh=sh+30
                     elseif it.type=="textbox"                                 then sh=sh+50
                     elseif it.type=="settings_keybind"                        then sh=sh+30
-                    elseif it.type=="settings_kill"                           then sh=sh+34
+                    elseif it.type=="settings_kill"                           then sh=sh+28
                     else sh=sh+26 end
                 end
             end
