@@ -193,7 +193,6 @@ local function renderNotifs()
         end
     end
     _notifs=alive
-    -- stack bottom-right; approximate screen width
     local scrW, scrH = 1920, 1080
     for i,n in ipairs(_notifs) do
         local nx=scrW-NOTIF_W-10
@@ -209,7 +208,6 @@ local function renderNotifs()
         poolAdd(_notifPool,nid.."bar", "Square",{Position=Vector2.new(nx,ny),Size=Vector2.new(3,NOTIF_H),Filled=true,Color=ac,Visible=true,ZIndex=202})
         poolAdd(_notifPool,nid.."ttl", "Text",  {Position=Vector2.new(nx+10,ny+7), Text=n.title,Size=11,Font=F,Color=ac,Outline=false,Visible=true,ZIndex=202})
         poolAdd(_notifPool,nid.."msg", "Text",  {Position=Vector2.new(nx+10,ny+21),Text=n.msg,  Size=13,Font=F,Color=tx,Outline=false,Visible=true,ZIndex=202})
-        -- progress bar
         local pct=clamp((n.endAt-now)/n.startDur,0,1)
         poolAdd(_notifPool,nid.."prg","Square",{Position=Vector2.new(nx,ny+NOTIF_H-3),Size=Vector2.new(math.max(0,NOTIF_W*pct),3),Filled=true,Color=ac,Visible=true,ZIndex=202})
     end
@@ -337,7 +335,6 @@ function GalaxLib:CreateWindow(opts)
     -- ── Settings tab (auto-built) ─────────────────────────────────────────
     function WIN:_buildSettings()
         local ST={_name="Settings",_sections={},_win=self,_isSettings=true}
-        -- Give Settings tab a real AddSection so external code can inject sections
         local winRef=self
         function ST:AddSection(sname)
             local SEC={_name=sname,_widgets={},_win=winRef,_collapsed=false}
@@ -370,22 +367,32 @@ function GalaxLib:CreateWindow(opts)
             end
             table.insert(ST._sections,SEC); return SEC
         end
+
+        -- Built-in sections: Menu (index 1), Theme (index 2)
         local SM={_name="Menu",_widgets={},_win=self,_collapsed=false}
         table.insert(SM._widgets,{type="settings_keybind",label="Toggle Key",listening=false})
         table.insert(SM._widgets,{type="settings_kill",label="Kill Script"})
-        table.insert(ST._sections,SM)
+        table.insert(ST._sections,SM)   -- index 1
+
         local STH={_name="Theme",_widgets={},_win=self,_collapsed=false}
         table.insert(STH._widgets,{type="dropdown",label="Change Theme",
             options=ThemeNames,value="Galax",maxVisible=7,scroll=0,
             cb=function(v) applyTheme(v) end,_search="",_sfocus=false})
-        table.insert(ST._sections,STH)
+        table.insert(ST._sections,STH)  -- index 2
+
+        -- Store refs so external inject (task.spawn) can reorder after adding its own sections.
+        -- External code adds Profiles (index 3) then Autoload (index 4), then calls:
+        --   ST._sections = { PS, SM, AS, STH }
+        -- which gives 2-col layout: [Profiles | Menu] then [Autoload | Theme]
+        ST._SM  = SM
+        ST._STH = STH
+
         table.insert(self._tabs,ST)
     end
 
     -- ── Dropdown list helper ─────────────────────────────────────────────
     function WIN:_ddList(pool,wid,it,ddPos,ddSz,iW,FONT,multi)
         local optH=20
-        -- Search filter
         local filt={}
         local srch=(it._search or ""):lower()
         for _,o in ipairs(it.options) do
@@ -400,14 +407,12 @@ function GalaxLib:CreateWindow(opts)
         local optW=hasSB and (iW-SBW-SBP*2) or iW
 
         local listPos=ddPos+Vector2.new(0,ddSz.Y+2)
-        local sbH_px=28  -- search box height
+        local sbH_px=28
         local listH=math.min(maxV,total)*optH+4+sbH_px
 
-        -- Background + border
         poolAdd(pool,wid.."_dll", "Square",{Position=listPos,Size=Vector2.new(iW,listH),Filled=true, Color=T.Surface0,Visible=true,ZIndex=20})
         poolAdd(pool,wid.."_dlb", "Square",{Position=listPos,Size=Vector2.new(iW,listH),Filled=false,Color=T.Accent, Thickness=1,Visible=true,ZIndex=21})
 
-        -- Search box
         local sbPos=listPos+Vector2.new(4,4)
         local sbSz=Vector2.new(iW-8,19)
         if Input.click and over(sbPos,sbSz) then it._sfocus=true
@@ -437,7 +442,6 @@ function GalaxLib:CreateWindow(opts)
             it.scroll=0
         end
 
-        -- Scrollbar
         local visN=math.min(it.maxVisible,total)
         if hasSB then
             local barH=math.max(14, (listH-sbH_px)*(it.maxVisible/total))
@@ -457,12 +461,10 @@ function GalaxLib:CreateWindow(opts)
             end
         end
 
-        -- Scroll with wheel when hovering list
         if over(listPos,Vector2.new(iW,listH)) and Input.scroll~=0 then
             it.scroll=clamp(it.scroll+Input.scroll,0,math.max(0,total-it.maxVisible))
         end
 
-        -- Options
         for vi=1,visN do
             local oi=vi+it.scroll; local opt=filt[oi]; if not opt then break end
             local opPos=listPos+Vector2.new(0,(vi-1)*optH+sbH_px+2)
@@ -509,7 +511,6 @@ function GalaxLib:CreateWindow(opts)
             h=20
 
         elseif it.type=="toggle" then
-            -- Animate knob
             it._anim=lerp(it._anim or (it.value and 1 or 0), it.value and 1 or 0, 0.22)
             local a=it._anim
             local trkW,trkH=28,14
@@ -733,7 +734,6 @@ function GalaxLib:CreateWindow(opts)
 
         poolBegin(pool)
 
-        -- Drag (title bar)
         local TH=38
         if Input.click and over(pos,Vector2.new(sz.X,TH)) and not self._drag and not self._resize then
             self._drag=mpos()-pos
@@ -741,7 +741,6 @@ function GalaxLib:CreateWindow(opts)
         if not Input.held then self._drag=nil end
         if self._drag then self._pos=mpos()-self._drag; pos=self._pos end
 
-        -- Resize handle (bottom-right triangle)
         local rSz=Vector2.new(14,14)
         local rPos=pos+sz-rSz
         poolAdd(pool,"rsz","Triangle",{
@@ -758,19 +757,16 @@ function GalaxLib:CreateWindow(opts)
                 math.max(self._minSz.Y,self._resizeBase.Y+d.Y)); sz=self.Size
         end
 
-        -- Window chrome
         poolAdd(pool,"wbg","Square",{Position=pos,Size=sz,Filled=true, Color=T.Body,   Visible=true,ZIndex=1})
         poolAdd(pool,"wbd","Square",{Position=pos,Size=sz,Filled=false,Color=T.Border0,Thickness=1,Visible=true,ZIndex=2})
         poolAdd(pool,"tbg","Square",{Position=pos,Size=Vector2.new(sz.X,TH),Filled=true,Color=T.Surface0,Visible=true,ZIndex=2})
         poolAdd(pool,"tln","Square",{Position=pos+Vector2.new(0,TH),Size=Vector2.new(sz.X,2),Filled=true,Color=T.Accent,Visible=true,ZIndex=3})
         poolAdd(pool,"ttx","Text",  {Position=pos+Vector2.new(12,11),Text=self.Title,Size=16,Font=F,Color=T.Accent,Outline=true,Visible=true,ZIndex=3})
 
-        -- Watermark
         local wm=self.Title.."  |  "..keyName(self.MenuKey).." to toggle"
         poolAdd(pool,"wmbg","Square",{Position=pos-Vector2.new(0,21),Size=Vector2.new(textW(wm,12)+14,18),Filled=true,Color=T.Surface0,Visible=true,ZIndex=1})
         poolAdd(pool,"wmtx","Text",  {Position=pos-Vector2.new(-5,17),Text=wm,Size=12,Font=F,Color=T.SubText,Outline=false,Visible=true,ZIndex=2})
 
-        -- Snake
         local snkP=pos+Vector2.new(0,TH+2); local snkS=sz-Vector2.new(0,TH+2)
         for i=1,self._snakeCount do
             local ti=t*0.175-i*0.004; local sl=self._snakeLines[i]
@@ -779,7 +775,6 @@ function GalaxLib:CreateWindow(opts)
             sl.Transparency=(1-i/self._snakeCount)*0.78; sl.Visible=true; sl.ZIndex=50
         end
 
-        -- Tabs
         local tabY=TH+4; local tabH=26; local tabX=10
         for i,tab in ipairs(self._tabs) do
             local tw=textW(tab._name,13)+24
@@ -798,7 +793,6 @@ function GalaxLib:CreateWindow(opts)
         end
         if not self._openTab then poolFlush(pool);renderNotifs();return end
 
-        -- Content area — 2-column layout, scrollable
         local contTop = TH + tabH + 10
         local padX    = 10
         local gap     = 8
@@ -807,14 +801,12 @@ function GalaxLib:CreateWindow(opts)
         local iW      = colW - 14
         local contH   = sz.Y - contTop - 8
 
-        -- Scroll wheel over content area
         if over(pos + Vector2.new(padX, contTop), Vector2.new(contW, contH)) and Input.scroll ~= 0 then
             self._scrollVel = self._scrollVel + Input.scroll * 18
         end
         self._scrollVel = self._scrollVel * 0.78
         self._scrollY   = math.max(0, self._scrollY + self._scrollVel)
 
-        -- Estimate section height
         local function estSecH(sec)
             local sh = 22
             if not sec._collapsed then
@@ -836,7 +828,6 @@ function GalaxLib:CreateWindow(opts)
             return sh + 10
         end
 
-        -- Pair sections into 2-column rows
         local secs = self._openTab._sections
         local rows  = {}
         local si = 1
@@ -845,7 +836,6 @@ function GalaxLib:CreateWindow(opts)
             si = si + 2
         end
 
-        -- Measure total scrollable height
         local totalH = 0
         for _, row in ipairs(rows) do
             local h1 = estSecH(row[1])
@@ -854,7 +844,6 @@ function GalaxLib:CreateWindow(opts)
         end
         self._scrollY = math.min(self._scrollY, math.max(0, totalH - contH))
 
-        -- Scrollbar
         if totalH > contH then
             local SBW = 4
             local sbX = pos.X + sz.X - SBW - 2
@@ -864,11 +853,9 @@ function GalaxLib:CreateWindow(opts)
             poolAdd(pool,"sc_bar","Square",{Position=Vector2.new(sbX,pos.Y+sbY),    Size=Vector2.new(SBW,sbH), Filled=true, Color=T.Accent, Visible=true,ZIndex=6})
         end
 
-        -- Draw a section; returns actual rendered height
         local function drawSec(sec, sid, absX, relY)
             local absY = pos.Y + relY
 
-            -- Section header
             local hdrP = Vector2.new(absX + 4, absY + 4)
             poolAdd(pool, sid.."_hdr", "Text", {
                 Position=hdrP, Text=sec._name,
@@ -907,7 +894,7 @@ function GalaxLib:CreateWindow(opts)
     end
 
     -- ── Main loop ─────────────────────────────────────────────────────────
-    WIN:_buildSettings()  -- run synchronously so AddSection is available immediately
+    WIN:_buildSettings()
     task.spawn(function()
         while WIN._running do
             task.wait()
