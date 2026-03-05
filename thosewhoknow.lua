@@ -441,7 +441,7 @@ function GalaxLib:CreateWindow(opts)
                     end
                 end
             end
-            it.scroll = 0
+            -- don't reset scroll when typing in search
         end
 
         -- FIX 2: Scrollbar
@@ -465,10 +465,12 @@ function GalaxLib:CreateWindow(opts)
             end
         end
 
-        -- FIX 2: Mouse wheel scrolls the dropdown list
-        if over(listPos, Vector2.new(iW, listH)) and Input.scroll ~= 0 then
-            it.scroll = clamp(it.scroll + Input.scroll, 0, math.max(0, total - it.maxVisible))
+        -- Mouse wheel scrolls the dropdown list via dedicated accumulator
+        local ds = it._ddScrollPending or 0
+        if ds ~= 0 and over(listPos, Vector2.new(iW, listH)) then
+            it.scroll = clamp(it.scroll + ds, 0, math.max(0, total - it.maxVisible))
         end
+        it._ddScrollPending = 0
 
         -- Options
         for vi = 1, visN do
@@ -930,15 +932,16 @@ function GalaxLib:CreateWindow(opts)
             end
         end
 
-        -- Scroll wheel over content (only if no dropdown is open and scroll not consumed by it)
+        -- Route scroll wheel: if hovering open dropdown list, send to dropdown; else send to window
         local ddConsumedScroll = false
-        if self._openDropData ~= nil then
+        if self._openDropData ~= nil and Input.scroll ~= 0 then
             local it = self._openDropData
             local ddP = it._overlayAnchor
             if ddP and it._overlayWidth then
-                local listH = math.min(it.maxVisible,#it.options)*20+4+28
-                local listP = ddP+Vector2.new(0,26)
+                local listH = math.min(it.maxVisible, #it.options) * 20 + 4 + 28
+                local listP = ddP + Vector2.new(0, 26)
                 if over(listP, Vector2.new(it._overlayWidth, listH)) then
+                    it._ddScrollPending = (it._ddScrollPending or 0) + Input.scroll
                     ddConsumedScroll = true
                 end
             end
@@ -1046,19 +1049,23 @@ function GalaxLib:CreateWindow(opts)
 
     -- ── Main loop ─────────────────────────────────────────────────────────
     WIN:_buildSettings()
+    -- Block Roblox input immediately since UI starts open
+    pcall(function() setrobloxinput(false) end)
     task.spawn(function()
         while WIN._running do
             task.wait()
             if not isrbxactive() then continue end
             Input:update()
             if Input:keyClick(WIN.MenuKey) then
-                WIN._open = not WIN._open; setrobloxinput(not WIN._open)
+                WIN._open = not WIN._open
                 if not WIN._open then
                     WIN._openDropId=nil; WIN._openDropData=nil
                     WIN._textboxTarget=nil; WIN._keybindTarget=nil
                     WIN._settingsListen=false; WIN._cpTarget=nil
                 end
             end
+            -- Always enforce input block state every frame
+            pcall(function() setrobloxinput(not WIN._open) end)
             WIN:_render()
         end
         setrobloxinput(true)
